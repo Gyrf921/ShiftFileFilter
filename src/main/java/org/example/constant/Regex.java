@@ -1,4 +1,4 @@
-package org.example.constrain;
+package org.example.constant;
 
 public final class Regex {
 
