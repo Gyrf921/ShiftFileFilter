@@ -1,0 +1,9 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="ShiftFileFilter:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/ShiftFileFilter_jar</output-path>
+    <root id="archive" name="ShiftFileFilter.jar">
+      <element id="module-output" name="ShiftFileFilter" />
+      <element id="extracted-dir" path="$MAVEN_REPOSITORY$/commons-cli/commons-cli/1.9.0/commons-cli-1.9.0.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>

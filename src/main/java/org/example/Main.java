@@ -1,66 +1,92 @@
 package org.example;
 
 import org.apache.commons.cli.*;
-import org.example.constant.Regex;
+import org.example.constant.OptionCMD;
+import org.example.service.FileDataCollector;
+import org.example.service.WriterFilesService;
+import org.example.service.statistic.StatisticCollector;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 public class Main {
+    private static final FileDataCollector fileDataCollector = new FileDataCollector();
 
-    private static WriterFilesCollector writerFilesCollector;
+    public static void main(String[] args) {
+        List<String> files = getTextFiles(args);
+
+        CommandLine cmd = parseCommandLine(args);
 
 
-    public static void main(String[] args) throws ParseException {
+        StatisticCollector statisticCollector = new StatisticCollector(fileDataCollector, cmd);
+        processFiles(files);
 
-        /*
-        (опц) Проверка всех флагов, определение конечной директории и прочие настройки
-        Взятие неопределённого кол-ва файлов (тест - 2 файла)
-        Создание 3х файлов
-        Одновременное чтение из всех файлов.
-        Определение типа данных текущей строки (regex)
-        (опц) Сбор статистики
-            -o нужно уметь задавать путь для результатов.
-            Опция -p задает префикс имен выходных файлов.
-            Например -o /some/path -p result_ задают вывод в файлы /some/path/result_integers.txt, /some/path/result_strings.txt и тд.
-            С помощью опции -a можно задать режим добавления в существующие файлы.
+        WriterFilesService writerFilesService = new WriterFilesService(cmd, fileDataCollector);
+        writerFilesService.writeFiles(fileDataCollector);
 
-В процессе фильтрации данных необходимо собирать статистику по каждому типу данных.
-Статистика должна поддерживаться двух видов: краткая и полная. Выбор статистики
-производится опциями -s и -f соответственно. Краткая статистика содержит только
-количество элементов записанных в исходящие файлы. Полная статистика для чисел
-дополнительно содержит минимальное и максимальное значения, сумма и среднее.
-Полная статистика для строк, помимо их количества, содержит также размер самой
-короткой строки и самой длинной.
-        ВАЖНО:
-        Не забыть описать библиотеку Apache Commons CLI
-       */
-        List<String> files = Arrays.stream(args).filter(str -> str.contains(".txt")).toList();
-
-        writerFilesCollector = new WriterFilesCollector(args);
-
-        parseFile(files);
-
-        writerFilesCollector.close();
+        statisticCollector.printStatistics();
 
         System.out.println("Done");
     }
 
-    public static void addToWriter(String line) throws IOException {
-        if (line != null){
-            if (line.matches(Regex.INT_REGEX)) {
-                writerFilesCollector.getIntegerWriter().write(line + "\n");
-            } else if (line.matches(Regex.FLOAT_REGEX)) {
-                writerFilesCollector.getFloatWriter().write(line + "\n");
-            } else {
-                writerFilesCollector.getStringWriter().write(line + "\n");
-            }
+
+    /**
+     * Фильтрует имена файлов и возвращает список текстовых файлов из аргументов командной строки.
+     * @param args аргументы командной строки
+     * @return список текстовых файлов
+     */
+    private static List<String> getTextFiles(String[] args) {
+        return Arrays.stream(args)
+                .filter(str -> str.endsWith(".txt"))
+                .toList();
+    }
+
+    /**
+     * Парсит аргументы командной строки и возвращает объект CommandLine.
+     * @param args аргументы командной строки
+     * @return объект CommandLine или null в случае ошибки парсинга
+     */
+    private static CommandLine parseCommandLine(String[] args) {
+        CommandLineParser parser = new DefaultParser();
+        try {
+            return parser.parse(OptionCMD.options, args);
+        } catch (ParseException e) {
+            System.err.println("Command line parsing exception: " + e.getMessage());
+            return null;
         }
     }
 
+    /**
+     * Обрабатывает список файлов, читая их содержимое.
+     * @param files список файлов для обработки
+     */
+    private static void processFiles(List<String> files) {
+        try {
+            List<BufferedReader> readers = createBufferedReaders(files);
+            readFileContents(readers);
+        } catch (IOException e) {
+            System.err.println("File reading exception: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Читает содержимое файлов, используя заданные BufferedReader.
+     * @param readers список BufferedReader для чтения файлов
+     * @throws IOException если возникает ошибка ввода/вывода
+     */
+    private static void readFileContents(List<BufferedReader> readers) throws IOException {
+        List<String> lines;
+        do {
+            lines = readLines(readers);
+            lines.forEach(fileDataCollector::add);
+        } while (lines.stream().anyMatch(Objects::nonNull));
+    }
+
+    /**
+     * Создает список BufferedReader для чтения указанных файлов.
+     * @param files список файлов для чтения
+     * @return список BufferedReader для файлов
+     */
     private static List<BufferedReader> createBufferedReaders(List<String> files){
         List<BufferedReader> readers = new ArrayList<>();
         for (String file : files){
@@ -75,33 +101,20 @@ public class Main {
         return readers;
     }
 
-    private static List<String> readLines(List<BufferedReader> brs) throws IOException {
+    /**
+     * Читает строки из указанных BufferedReader и возвращает их в виде списка.
+     * @param readers список BufferedReader для чтения строк
+     * @return список строк, прочитанных из файлов
+     * @throws IOException если возникает ошибка ввода/вывода
+     */
+    private static List<String> readLines(List<BufferedReader> readers) throws IOException {
         List<String> lines = new ArrayList<>();
-        for (BufferedReader br : brs) {
-            lines.add(br.readLine());
+        for (BufferedReader reader : readers) {
+            String line = reader.readLine();
+            if (line != null) {
+                lines.add(line);
+            }
         }
         return lines;
-    }
-
-    private static void parseFile(List<String> files) {
-        try{
-            List<BufferedReader> brs = createBufferedReaders(files);
-
-            List<String> lines = readLines(brs);
-            while (lines.stream().anyMatch(Objects::nonNull)) {
-                lines.forEach(line -> {
-                    try {
-                        addToWriter(line);
-                    } catch (IOException e) {
-                        System.err.println("Exception when trying to write to a file:" + e.getMessage());
-                    }
-                });
-
-                lines = readLines(brs);
-            }
-
-        } catch (IOException e) {
-            System.err.println("Ошибка при чтении файла: " + e.getMessage());
-        }
     }
 }

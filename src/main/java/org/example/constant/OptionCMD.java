@@ -1,5 +1,7 @@
 package org.example.constant;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 
 public class OptionCMD {
@@ -11,6 +13,7 @@ public class OptionCMD {
         options.addOption("a", "additional", false, "additional existing files");
         options.addOption("s", "small-statistic", false, "small-statistic");
         options.addOption("f", "full-statistic", false, "full-statistic");
+        options.addOption("h", "help", false, "display help information");
     }
 
     public static final String INT_FILE_NAME = "integers.txt";
